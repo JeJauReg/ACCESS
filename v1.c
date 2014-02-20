@@ -34,7 +34,7 @@
 #define RAD_TO_DEG 57.29578
 #define M_PI 3.14159265358979323846
 
-
+#define CALIBRATE_TIME 5000 //time to wait for stabilization before activating servos
 
 
 void  INThandler(int sig)
@@ -75,126 +75,106 @@ void getGyrRaw(vector3 *v)
 
 void getAccAngle(vector3 *v)
 {
+	int *Pacc_raw;
+	int acc_raw[3];
 
+	Pacc_raw = acc_raw;
+
+	readACC(Pacc_raw);
+
+	v->x = (float) (atan2(*(acc_raw+1),*(acc_raw+2))+M_PI)*RAD_TO_DEG;
+	v->y = (float) (atan2(*(acc_raw+2),*acc_raw)+M_PI)*RAD_TO_DEG;
+	//v->z?
 }
 
-void getGyroRate(vector3 *v)
+void getGyrRate(vector3 *v)
 {
+	int *Pgyr_raw;
+	int gyr_raw[3];
 
+	Pgyr_raw = gyr_raw;
+
+	readGYR(Pgyr_raw);
+
+	v->x = (float) *gyr_raw * G_GAIN;
+	v->y = (float) *(gyr_raw+1) * G_GAIN;
+	v->z = (float) *(gyr_raw+2) * G_GAIN;
 }
 
-void getGyroAngle(vector3 *v)
+void getGyrAngle(vector3 *v)
 {
-	
+	getGyrRate(v);
+	v->x += (v->x) * DT;
+	v->y += (v->y) * DT;
+	v->z += (v->z) * DT;	
 }
 
-void getCFAngle(vector3 *v)
+void getCFAngle(vector3 *v, vector3 *acc_angle, vector3 *gyr_rate)
 {
-	
+	getAccAngle(acc_angle);
+	getGyrRate(gyr_rate);
+
+	v->x = AA*(v->x + gyr_rate->x*DT) + (1-AA) * acc_angle->x;
+	v->y = AA*(v->y + gyr_rate->y*DT) + (1-AA) * acc_angle->y;
 }
 
 int main(int argc, char *argv[])
 {
-
-	float rate_gyr_y = 0.0;   // [deg/s]
-	float rate_gyr_x = 0.0;    // [deg/s]
-	float rate_gyr_z = 0.0;     // [deg/s]
-
-
-	int  *Pacc_raw;
-	int  *Pmag_raw;
-	int  *Pgyr_raw;
-	int  acc_raw[3];
-	int  mag_raw[3];
-	int  gyr_raw[3];
-
-	Pacc_raw = acc_raw;
-	Pmag_raw = mag_raw;
-	Pgyr_raw = gyr_raw;
-
-
-	float gyroXangle = 0.0;
-	float gyroYangle = 0.0;
-	float gyroZangle = 0.0;
-	float AccYangle = 0.0;
-	float AccXangle = 0.0;
-	float CFangleX = 0.0;
-	float CFangleY = 0.0;
-
 	int startInt  = mymillis();
+	int t1;
 	struct  timeval tvBegin, tvEnd,tvDiff;
+	int GPIO = 4;
+	int currentXValue = 1500;
+	int currentYValue = 1500;
 
-	signed int acc_y = 0;
-	signed int acc_x = 0;
-	signed int acc_z = 0;
-	signed int gyr_x = 0;
-	signed int gyr_y = 0;
-	signed int gyr_z = 0;
+	vector3 *acc, *cfangle, *gyro, *normal;
 
+	gpioInitialise();
 
+	gpioServo(GPIO, currentYValue);
+
+	acc = malloc(sizeof(vector3));
+	cfangle = malloc(sizeof(vector3));
+	gyro = malloc(sizeof(vector3));
+	normal = malloc(sizeof(vector3));
 
         signal(SIGINT, INThandler);
 	enableIMU();
 	gettimeofday(&tvBegin, NULL);
 
+	t1 = mymillis();
+	while(mymillis() - t1 < CALIBRATE_TIME)
+	{
+		startInt = mymillis();
+		getCFAngle(cfangle, acc, gyro);
+		normal->x = cfangle->x - 180;
+		normal->y = cfangle->y - 270;
+
+		while(mymillis() - startInt < 20)
+		{
+			usleep(100);
+		}
+	}
 
 	while(1)
 	{
-	startInt = mymillis();
+		startInt = mymillis();
+		gpioServo(GPIO, currentYValue);
 
+		getCFAngle(cfangle, acc, gyro);
+		normal->x = cfangle->x - 180;
+		normal->y = cfangle->y - 270;
 
-	//read ACC and GYR data
-	readMAG(Pmag_raw);
-	readACC(Pacc_raw);
-	readGYR(Pgyr_raw);
+		printf(" CFangleX = %7.3f \t CFangleY = %7.3f \n", normal->x, normal->y);
 
+		//Each loop should be at least 20ms.
+        	while(mymillis() - startInt < 20)
+	        {
+        	    usleep(100);
+	        }
 
-	//Convert Gyro raw to degrees per second
-	rate_gyr_x = (float) *gyr_raw * G_GAIN;
-	rate_gyr_y = (float) *(gyr_raw+1) * G_GAIN;
-	rate_gyr_z = (float) *(gyr_raw+2) * G_GAIN;
-
-
-
-	//Calculate the angles from the gyro
-	gyroXangle+=rate_gyr_x*DT;
-	gyroYangle+=rate_gyr_y*DT;
-	gyroZangle+=rate_gyr_z*DT;
-
-
-
-
-	//Convert Accelerometer values to degrees
-	AccXangle = (float) (atan2(*(acc_raw+1),*(acc_raw+2))+M_PI)*RAD_TO_DEG;
-	AccYangle = (float) (atan2(*(acc_raw+2),*acc_raw)+M_PI)*RAD_TO_DEG;
-
-
-	//Change the rotation value of the accelerometer to -/+ 180
-	if (AccXangle >180)
-	{
-		AccXangle -= (float)360.0;
+		printf("Loop Time %d\t", mymillis()- startInt);
 	}
-	if (AccYangle >180)
-		AccYangle -= (float)360.0;
-
-	// Complementary filter used to combine the accelerometer and gyro values.
-	CFangleX=AA*(CFangleX+rate_gyr_x*DT) +(1 - AA) * AccXangle;
-	CFangleY=AA*(CFangleY+rate_gyr_y*DT) +(1 - AA) * AccYangle;
-
-
-	// printf ("   GyroX  %7.3f \t AccXangle \e[m %7.3f \t \033[22;31mCFangleX %7.3f\033[0m\t GyroY  %7.3f \t AccYangle  %7.3f \t \033[22;36mCFangleY %7.3f\t\033[0m\n",gyroXangle,AccXangle,CFangleX,gyroYangle,AccYangle,CFangleY);
-
-	// Just print CF  (Complementary Filter) angles
-	printf(" CFangleX =  %7.3f \t CFangleY = %7.3f \n", CFangleX, CFangleY);
-
-	//Each loop should be at least 20ms.
-        while(mymillis() - startInt < 20)
-        {
-            usleep(100);
-        }
-
-	printf("Loop Time %d\t", mymillis()- startInt);
-    }
 
 }
 

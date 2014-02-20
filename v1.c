@@ -165,7 +165,12 @@ int main(int argc, char *argv[])
 		normal->x = cfangle->x - 180;
 		normal->y = cfangle->y - 270;
 
-		printf(" CFangleX = %7.3f \t CFangleY = %7.3f \n", normal->x, normal->y);
+		printf(" CFangleX = %7.3f \t CFangleY = %7.3f \t pulsewidth = %d\n", normal->x, normal->y, currentYValue);
+		
+		if(normal->y > 1)
+		{
+			currentYValue = 1500 + ((int)(normal->y)/2.0)*10;
+		}
 
 		//Each loop should be at least 20ms.
         	while(mymillis() - startInt < 20)

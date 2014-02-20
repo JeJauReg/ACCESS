@@ -123,7 +123,8 @@ int main(int argc, char *argv[])
 	int startInt  = mymillis();
 	int t1;
 	struct  timeval tvBegin, tvEnd,tvDiff;
-	int GPIO = 4;
+	int GPIOY = 4;
+	int GPIOX = 17;
 	int currentXValue = 1500;
 	int currentYValue = 1500;
 
@@ -131,7 +132,8 @@ int main(int argc, char *argv[])
 
 	gpioInitialise();
 
-	gpioServo(GPIO, currentYValue);
+	gpioServo(GPIOY, currentYValue);
+	gpioServo(GPIOX, currentXValue);
 
 	acc = malloc(sizeof(vector3));
 	cfangle = malloc(sizeof(vector3));
@@ -159,7 +161,8 @@ int main(int argc, char *argv[])
 	while(1)
 	{
 		startInt = mymillis();
-		gpioServo(GPIO, currentYValue);
+		gpioServo(GPIOY, currentYValue);
+		gpioServo(GPIOX, currentXValue);
 
 		getCFAngle(cfangle, acc, gyro);
 		normal->x = cfangle->x - 180;
@@ -167,10 +170,8 @@ int main(int argc, char *argv[])
 
 		printf(" CFangleX = %7.3f \t CFangleY = %7.3f \t pulsewidth = %d\n", normal->x, normal->y, currentYValue);
 		
-		if(normal->y > 1)
-		{
-			currentYValue = 1500 + ((int)(normal->y)/2.0)*10;
-		}
+		currentYValue = 1500 + (int)(normal->y)*10;
+		currentXValue = 1500 + (int)(normal->x)*10;
 
 		//Each loop should be at least 20ms.
         	while(mymillis() - startInt < 20)

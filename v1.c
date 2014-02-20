@@ -35,7 +35,8 @@
 #define M_PI 3.14159265358979323846
 
 #define CALIBRATE_TIME 5000 //time to wait for stabilization before activating servos
-
+#define MIDY 1450
+#define MIDX 1440
 
 void  INThandler(int sig)
 {
@@ -125,8 +126,8 @@ int main(int argc, char *argv[])
 	struct  timeval tvBegin, tvEnd,tvDiff;
 	int GPIOY = 4;
 	int GPIOX = 17;
-	int currentXValue = 1500;
-	int currentYValue = 1500;
+	int currentXValue = MIDX;
+	int currentYValue = MIDY;
 
 	vector3 *acc, *cfangle, *gyro, *normal;
 
@@ -170,8 +171,8 @@ int main(int argc, char *argv[])
 
 		printf(" CFangleX = %7.3f \t CFangleY = %7.3f \t pulsewidth = %d\n", normal->x, normal->y, currentYValue);
 		
-		currentYValue = 1500 + (int)(normal->y)*10;
-		currentXValue = 1500 + (int)(normal->x)*10;
+		currentYValue = MIDY + (int)(normal->y)*10;
+		currentXValue = MIDX - (int)(normal->x)*10;
 
 		//Each loop should be at least 20ms.
         	while(mymillis() - startInt < 20)

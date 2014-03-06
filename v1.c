@@ -20,7 +20,7 @@
 #include "LSM303.h"
 #include "sensor.c"
 #include "i2c-dev.h"
-#include "v1.h"
+#include "vector.h"
 
 #define X   0
 #define Y   1
@@ -100,6 +100,8 @@ void getGyrRate(vector3 *v)
 	v->x = (float) *gyr_raw * G_GAIN;
 	v->y = (float) *(gyr_raw+1) * G_GAIN;
 	v->z = (float) *(gyr_raw+2) * G_GAIN;
+
+	printf("GR[x] = %f \t GR[y] = %f \t GR[z] = %f\n",v->x, v->y, v->z);
 }
 
 void getGyrAngle(vector3 *v)
@@ -107,7 +109,7 @@ void getGyrAngle(vector3 *v)
 	getGyrRate(v);
 	v->x += (v->x) * DT;
 	v->y += (v->y) * DT;
-	v->z += (v->z) * DT;	
+	v->z += (v->z) * DT;
 }
 
 void getCFAngle(vector3 *v, vector3 *acc_angle, vector3 *gyr_rate)
@@ -162,15 +164,15 @@ int main(int argc, char *argv[])
 	while(1)
 	{
 		startInt = mymillis();
-		gpioServo(GPIOY, currentYValue);
-		gpioServo(GPIOX, currentXValue);
+//		gpioServo(GPIOY, currentYValue);
+//		gpioServo(GPIOX, currentXValue);
 
 		getCFAngle(cfangle, acc, gyro);
 		normal->x = cfangle->x - 180;
 		normal->y = cfangle->y - 270;
 
-		printf(" CFangleX = %7.3f \t CFangleY = %7.3f \t pulsewidth = %d\n", normal->x, normal->y, currentYValue);
-		
+		//printf(" CFangleX = %7.3f \t CFangleY = %7.3f \t pulsewidth = %d\n", normal->x, normal->y, currentYValue);
+
 		currentYValue = MIDY + (int)(normal->y)*10;
 		currentXValue = MIDX - (int)(normal->x)*10;
 
